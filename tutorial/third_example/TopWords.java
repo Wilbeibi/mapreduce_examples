@@ -15,6 +15,20 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 public class TopWords {
+	/* https://hadoop.apache.org/docs/r2.7.0/api/org/apache/hadoop/io/ArrayWritable.html
+	 * 
+	 * A Writable for arrays containing instances of a class. The elements of this writable 
+	 * must all be instances of the same class. If this writable will be the input for a 
+	 * Reducer, you will need to create a subclass that sets the value to be of the proper 
+	 * type. For example: 
+	 * 
+	 * public class IntArrayWritable extends ArrayWritable { 
+	 * 	   public IntArrayWritable() { 
+	 * 	       super(IntWritable.class); 
+	 *     } 
+	 * }
+	 * 
+	 */
     public static class TextArrayWritable extends ArrayWritable {
         public TextArrayWritable() {
             super(Text.class);
@@ -31,6 +45,7 @@ public class TopWords {
     }
 
     public static class WordCountMap extends Mapper<Object, Text, Text, IntWritable> {
+    	// TODO: why Arrays.asList
         List<String> commonWords = Arrays.asList("the", "a", "an", "and", "of", "to", "in", "am", "is", "are", "at", "not");
         @Override
         public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
@@ -57,6 +72,7 @@ public class TopWords {
     }
 
     public static class TopWordsMap extends Mapper<Text, Text, NullWritable, TextArrayWritable> {
+    	// TODO: TreeSet
         private TreeSet<Pair<Integer, String>> countToWordMap = new TreeSet<Pair<Integer, String>>();
 
         @Override
@@ -85,7 +101,9 @@ public class TopWords {
         private TreeSet<Pair<Integer, String>> countToWordMap = new TreeSet<Pair<Integer, String>>();
 
         @Override
-        public void reduce(NullWritable key, Iterable<TextArrayWritable> values, Context context) throws IOException, InterruptedException {
+        // TODO: NullWritable
+        public void reduce(NullWritable key, Iterable<TextArrayWritable> values, Context context) 
+        		throws IOException, InterruptedException {
             for (TextArrayWritable val: values) {
                 Text[] pair= (Text[]) val.toArray();
 
@@ -110,11 +128,15 @@ public class TopWords {
     public static void main(String[] args) throws Exception {
 
         Configuration conf = new Configuration();
+        
+        // Ref: https://hadoop.apache.org/docs/r2.7.0/api/org/apache/hadoop/fs/FileSystem.html
+        // An abstract base class for a fairly generic filesystem. It may be implemented as a 
+        // distributed filesystem (like HDFS) , or as a "local" one that reflects the locally-connected disk.
         FileSystem fs = FileSystem.get(conf);
         Path tmpPath = new Path("/w1/tmp");
         fs.delete(tmpPath, true);
 
-
+        // #1. wordcount
         Job jobA = Job.getInstance(conf, "wordcount");
         jobA.setOutputKeyClass(Text.class);
         jobA.setOutputValueClass(IntWritable.class);
@@ -127,7 +149,8 @@ public class TopWords {
 
         jobA.setJarByClass(TopWords.class);
         jobA.waitForCompletion(true);
-
+        
+        // #2. topword
         Job jobB = Job.getInstance(conf, "Top Words");
         jobB.setOutputKeyClass(Text.class);
         jobB.setOutputValueClass(IntWritable.class);
